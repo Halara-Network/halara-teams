@@ -1,0 +1,29 @@
+name: hTeams
+version: '${version}'
+main: me.coopersully.halara.teams.HalaraTeams
+api-version: 1.19
+authors: [ coopersully ]
+description: A lightweight teams plugin.
+website: https://github.com/Halara-Network/halara-teams/
+
+commands:
+  createteam:
+    description: Create a team.
+    usage: /createteam <name>
+    permission: halara.team.create
+    aliases: ["addteam"]
+  leaveteam:
+    description: Leave your current team.
+    usage: /leaveteam
+    permission: halara.team.leave
+    aliases: [ "leave" ]
+  listteams:
+    description: Fetch a list of existing teams.
+    usage: /teams [query]
+    permission: halara.team.list
+    aliases: [ "teams" ]
+  team:
+    description: Fetch a list of existing teams.
+    usage: /team [create|list] [...]
+    permission: halara.teams
+    #aliases: []
