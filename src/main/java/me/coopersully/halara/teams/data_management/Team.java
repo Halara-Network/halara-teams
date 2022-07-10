@@ -3,12 +3,10 @@ package me.coopersully.halara.teams.data_management;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONArray;
-import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class Team {
 
@@ -18,7 +16,7 @@ public class Team {
     private final int id;
     private final String name;
     private final long birthdate;
-    private final List<TeamMember> members = new ArrayList<>();
+    private List<TeamMember> members = new ArrayList<>();
 
     public Team(@NotNull String displayname) {
         this.name = displayname.strip();
@@ -47,19 +45,39 @@ public class Team {
         return formatDate(birthdate);
     }
 
-    public void addMember(Player player, int position) {
-        this.members.add(new TeamMember(player, position));
+    public Team decacheMember(Player player) {
+        return decacheMember(new TeamMember(player, -1));
     }
 
-    public void addMember(TeamMember member) {
+    public Team decacheMember(TeamMember member) {
+        // CANNOT TAKE POSITION INTO CONSIDERATION !!
+        for (TeamMember teamMember : members) {
+            if (teamMember.getUuid() == member.getUuid()) {
+                members.remove(teamMember);
+                break;
+            }
+        }
+        return this;
+    }
+
+    public void cacheMember(Player player, int position) {
+        this.cacheMember(new TeamMember(player, position));
+    }
+
+    public void cacheMember(TeamMember member) {
         this.members.add(member);
     }
 
-    public List<TeamMember> getMembers() {
+    public Team cacheAllMembers() {
+        members = SQLiteManager.getMembersFromTeam(this.id);
+        return this;
+    }
+
+    public List<TeamMember> getCachedMembers() {
         return members;
     }
 
-    public JSONArray getMembersJson() {
+    public JSONArray getCachedMembersJSON() {
         JSONArray membersArray = new JSONArray();
         for (var member : members) {
             membersArray.put(member.getJSONObject());

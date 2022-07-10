@@ -27,7 +27,7 @@ public final class HalaraTeams extends JavaPlugin {
         // Create database if it doesn't exist
         SQLiteManager.createNewDatabase(ConfigMain.getSqliteNamespace());
         SQLiteManager.connect();
-        SQLiteManager.createTeamsTable();
+        SQLiteManager.initializeTable();
 
         // Register all commands
         getCommand("team").setExecutor(new CommandTeam());

@@ -4,6 +4,7 @@ import me.coopersully.halara.teams.CoreUtils;
 import me.coopersully.halara.teams.data_management.PDCManager;
 import me.coopersully.halara.teams.data_management.SQLiteManager;
 import me.coopersully.halara.teams.data_management.Team;
+import me.coopersully.halara.teams.data_management.TeamMember;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -31,6 +32,7 @@ public class CommandTeam implements CommandExecutor {
             case "info" -> info(sender);
             case "create", "add", "new", "make" -> create(sender, args);
             case "list", "find", "search" -> list(sender, args);
+            case "leave" -> leave(sender);
         }
 
         return true;
@@ -61,9 +63,18 @@ public class CommandTeam implements CommandExecutor {
         }
 
         Team team = teams.get(0);
+        TeamMember teamMember = SQLiteManager.getMemberFromTeam(teamID, player.getUniqueId());
         CoreUtils.sendColoredMessage(
                 sender,
                 "&7You're apart of &e" + team.getName() + " &7(#" + team.getId() + ") est. " + Team.formatDateShort(team.getBirthdate())
+        );
+        CoreUtils.sendColoredMessage(
+                sender,
+                "&7You are currently a &e" + teamMember.getPosition() + "\u2B50 &7member of the team."
+        );
+        CoreUtils.sendColoredMessage(
+                sender,
+                "&7You joined the team on &e" + Team.formatDate(teamMember.getBirthdate())
         );
     }
 
@@ -93,6 +104,11 @@ public class CommandTeam implements CommandExecutor {
         int teamId = Team.getIDFromName(teamName);
         if (SQLiteManager.isTeamIDTaken(teamId)) {
             CoreUtils.sendColoredMessage(player, "&cA team by the name of &e" + teamName + " &calready exists.");
+            return;
+        }
+
+        if (PDCManager.getTeamID(player) != 0) {
+            CoreUtils.sendColoredMessage(player, "&cYou must leave your current team before creating a new one.");
             return;
         }
 
@@ -141,7 +157,17 @@ public class CommandTeam implements CommandExecutor {
         Player player = CoreUtils.checkPlayer(sender);
         if (player == null) return;
 
-        int teamID = PDCManager.getTeamID(player);
+        int PDCteamID = PDCManager.getTeamID(player);
+
+        List<Team> teams = SQLiteManager.convertResultSetToTeams(SQLiteManager.getTeamsByID(PDCteamID));
+        for (Team team : teams) {
+            SQLiteManager.setTeamMembersToCache(team.cacheAllMembers());
+            CoreUtils.sendColoredMessage(
+                    sender,
+                    "&7You left &e" + team.getName() + " &7(#" + PDCteamID + ")"
+            );
+        }
+        PDCManager.leaveTeam(player);
 
     }
 

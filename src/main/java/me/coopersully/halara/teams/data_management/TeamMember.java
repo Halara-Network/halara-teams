@@ -31,6 +31,18 @@ public class TeamMember {
         this.birthdate = System.currentTimeMillis();
     }
 
+    public UUID getUuid() {
+        return uuid;
+    }
+
+    public int getPosition() {
+        return position;
+    }
+
+    public long getBirthdate() {
+        return birthdate;
+    }
+
     public JSONObject getJSONObject() {
         return new JSONObject("{ \"uuid\": \"" + uuid + "\", \"position\": " + position + ", \"birthdate\": \"" + birthdate + "\" }");
     }

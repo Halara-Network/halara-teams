@@ -5,7 +5,8 @@ import me.coopersully.halara.teams.data_management.config.ConfigMain;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
-import org.json.JSONObject;
+import org.jetbrains.annotations.Nullable;
+import org.json.JSONArray;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -97,20 +98,23 @@ public class SQLiteManager {
         }
     }
 
-    public static void createTeamsTable() {
-        performStatementUpdate("CREATE TABLE IF NOT EXISTS teams ( id INTEGER, name TEXT, date_created TEXT, members TEXT )");
-        if (ConfigMain.isDebug()) System.out.println(ChatColor.GREEN +  "\"teams\" table successfully created/connected.");
+    public static void initializeTable() {
+        var wasCreated = performStatementUpdate("CREATE TABLE IF NOT EXISTS teams ( id INTEGER, name TEXT, date_created TEXT, members TEXT )");
+        if (ConfigMain.isDebug()) {
+            if (wasCreated) System.out.println(ChatColor.GREEN + "\"teams\" table successfully created.");
+            else System.out.println(ChatColor.GREEN + "Successfully connected to " + "\"teams\" table.");
+        }
     }
 
-    public static boolean createTeam(String name, Player owner) {
+    public static void createTeam(String name, Player owner) {
         if (ConfigMain.isDebug()) System.out.println("Attempting to create a new team...");
 
         Team team = new Team(name);
-        team.addMember(owner, 100);
-        var sql = "INSERT INTO teams VALUES( " + team.getId() + ", '" + team.getName() + "', '" + team.getBirthdate() + "', '" + team.getMembersJson() + "' )";
+        team.cacheMember(owner, 100);
+        var sql = "INSERT INTO teams VALUES( " + team.getId() + ", '" + team.getName() + "', '" + team.getBirthdate() + "', '" + team.getCachedMembersJSON() + "' )";
 
         if (ConfigMain.isDebug()) System.out.println(sql);
-        return performStatementUpdate(sql);
+        performStatementUpdate(sql);
     }
 
     public static ResultSet getTeams() {
@@ -166,21 +170,60 @@ public class SQLiteManager {
         return fetchSize != 0;
     }
 
-//    public static TeamMember getMemberFromTeam(int teamID, UUID memberUUID) {
-//
-//        String members;
-//        try {
-//            members = getTeamsByID(teamID).getString(4);
-//        } catch (SQLException e) {
-//            throw new RuntimeException(e);
-//        }
-//        JSONObject jsonObject = new JSONObject(members);
-//        for (var member : jsonObject.getJSONArray()) {
-//            if (member instanceof JSONObject memberObject) {
-//                memberObject.getString()
-//            }
-//        }
-//        return new TeamMember();
-//    }
+    public static @NotNull List<TeamMember> getMembersFromTeam(int teamID) {
+
+        String members;
+        try {
+            members = getTeamsByID(teamID).getString(4);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        List<TeamMember> teamMembers = new ArrayList<>();
+        JSONArray jsonArray = new JSONArray(members);
+        for (int i = 0; i < jsonArray.length(); i++) {
+
+            var member = jsonArray.getJSONObject(i);
+
+            teamMembers.add(
+                    new TeamMember(
+                            UUID.fromString(member.getString("uuid")),
+                            member.getInt("position"),
+                            member.getLong("birthdate")
+                    )
+            );
+        }
+
+        return teamMembers;
+
+    }
+
+    public static @Nullable TeamMember getMemberFromTeam(int teamID, UUID memberUUID) {
+
+        String members;
+        try {
+            members = getTeamsByID(teamID).getString(4);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        JSONArray jsonArray = new JSONArray(members);
+        for (int i = 0; i < jsonArray.length(); i++) {
+
+            var member = jsonArray.getJSONObject(i);
+
+            String currUUID = member.getString("uuid");
+            if (!currUUID.equals(memberUUID.toString())) continue;
+
+            return new TeamMember(UUID.fromString(currUUID), member.getInt("position"), member.getLong("birthdate"));
+        }
+
+        return null;
+
+    }
+
+    public static void setTeamMembersToCache(@NotNull Team team) {
+        performStatementUpdate("UPDATE teams SET members = '" + team.getCachedMembersJSON() + "' WHERE id = '" + team.getId() + "'");
+    }
 
 }
