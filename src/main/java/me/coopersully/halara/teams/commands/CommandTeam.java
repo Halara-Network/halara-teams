@@ -12,8 +12,8 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.List;
 
 public class CommandTeam implements CommandExecutor {
 
@@ -36,6 +36,9 @@ public class CommandTeam implements CommandExecutor {
         return true;
     }
 
+    /* The default subcommand.
+    Returns information about the player's current team,
+    or an error message if they are not currently in a team. */
     public static void info(CommandSender sender) {
 
         // If the command was not run by a player
@@ -48,36 +51,26 @@ public class CommandTeam implements CommandExecutor {
             return;
         }
 
-        try {
-            var teamInfo = SQLiteManager.getTeamsByID(teamID);
-            while (teamInfo.next()) {
-
-                String id = "";
-                String name = "";
-                long date = 0;
-
-                for (int i = 1; i <= teamInfo.getMetaData().getColumnCount(); i++) {
-                    switch (i) {
-                        case 1 -> id = teamInfo.getString(i);
-                        case 2 -> name = teamInfo.getString(i);
-                        case 3 -> date = teamInfo.getLong(i);
-                    }
-                }
-
-                // Send packaged message & line separator
-                sender.sendMessage(
-                        CoreUtils.colorMessage(
-                                "&7You're apart of &e" + name + " &7(#" + id + ") est. " + Team.formatDateShort(date)
-                        )
-                );
-            }
-        } catch (SQLException e) {
-            sender.sendMessage(ChatColor.RED + "There was an error fetching your current team; please contact an admin.");
-            throw new RuntimeException(e);
+        List<Team> teams = SQLiteManager.convertResultSetToTeams(SQLiteManager.getTeamsByID(teamID));
+        if (teams.size() > 1) {
+            CoreUtils.sendColoredMessage(
+                    sender,
+                    "&cYou appear to be on multiple teams; please contact an admin."
+            );
+            return;
         }
 
+        Team team = teams.get(0);
+        CoreUtils.sendColoredMessage(
+                sender,
+                "&7You're apart of &e" + team.getName() + " &7(#" + team.getId() + ") est. " + Team.formatDateShort(team.getBirthdate())
+        );
     }
 
+    /* Creates a team.
+    Takes in a team name and if it is not already taken,
+    creates a team with the given name and joins the player
+    to the created team, making them the owner. */
     public static void create(CommandSender sender, String[] args) {
 
         // If the command was not run by a player
@@ -99,67 +92,56 @@ public class CommandTeam implements CommandExecutor {
         // Ensure team name is not already taken
         int teamId = Team.getIDFromName(teamName);
         if (SQLiteManager.isTeamIDTaken(teamId)) {
-            player.sendMessage(CoreUtils.colorMessage("&cA team by the name of &e" + teamName + " &calready exists."));
+            CoreUtils.sendColoredMessage(player, "&cA team by the name of &e" + teamName + " &calready exists.");
             return;
         }
 
         // Attempt to register new team in database
         SQLiteManager.createTeam(teamName, player);
         PDCManager.setTeam(player, teamId);
-        player.sendMessage(CoreUtils.colorMessage("&7Successfully created team &e" + teamName + "&7!"));
+
+        // Notify player
+        CoreUtils.sendColoredMessage(player, "&7Successfully created team &e" + teamName + "&7!");
 
     }
 
+    /* Lists existing teams.
+    Takes in an (optional) search query and returns a list of
+    all existing teams matching the search query; if none is given,
+    returns a list of all existing teams. */
     public static void list(CommandSender sender, String @NotNull [] args) {
-        try {
 
-            ResultSet resultSet;
-            if (args.length != 0) {
-                // If the player provided a search query
-                resultSet = SQLiteManager.getTeamsByApproximateName(args[0]);
-                sender.sendMessage(CoreUtils.colorMessage("&7All existing teams matching &e" + args[0] + "&7:"));
-            } else {
-                // If the player did not provide a search query
-                resultSet = SQLiteManager.getTeams();
-                sender.sendMessage(CoreUtils.colorMessage("&7All existing teams:"));
-            }
+        ResultSet resultSet;
+        if (args.length != 0) {
+            // If the player provided a search query
+            resultSet = SQLiteManager.getTeamsByApproximateName(args[0]);
+            sender.sendMessage(CoreUtils.colorMessage("&7All existing teams matching &e" + args[0] + "&7:"));
+        } else {
+            // If the player did not provide a search query
+            resultSet = SQLiteManager.getTeams();
+            sender.sendMessage(CoreUtils.colorMessage("&7All existing teams:"));
+        }
 
-
-            while (resultSet.next()) {
-
-                String id = "";
-                String name = "";
-                long date = 0;
-
-                for (int i = 1; i <= resultSet.getMetaData().getColumnCount(); i++) {
-                    switch (i) {
-                        case 1 -> id = resultSet.getString(i);
-                        case 2 -> name = resultSet.getString(i);
-                        case 3 -> date = resultSet.getLong(i);
-                    }
-                }
-
-                // Send packaged message & line separator
-                sender.sendMessage(
-                        CoreUtils.colorMessage(
-                                "  \u2022 &e" + name + " &7(#" + id + ") est. " + Team.formatDateShort(date)
-                        )
-                );
-            }
-
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+        List<Team> teams = SQLiteManager.convertResultSetToTeams(resultSet);
+        for (Team team : teams) {
+            CoreUtils.sendColoredMessage(
+                    sender,
+                    "  \u2022 &e" + team.getName() + " &7(#" + team.getId() + ") est. " + Team.formatDateShort(team.getBirthdate())
+            );
         }
 
     }
 
+    /* Leaves the current team.
+    If the player is not currently in a team, returns an
+    error message. If successful, notifies the player. */
     public static void leave(CommandSender sender) {
 
         // If the command was not run by a player
         Player player = CoreUtils.checkPlayer(sender);
         if (player == null) return;
 
-        PDCManager.getTeamID(player);
+        int teamID = PDCManager.getTeamID(player);
 
     }
 

@@ -1,17 +1,15 @@
 package me.coopersully.halara.teams.data_management;
 
-import com.google.gson.JsonArray;
-import me.coopersully.halara.teams.CoreUtils;
 import me.coopersully.halara.teams.HalaraTeams;
-import me.coopersully.halara.teams.data_management.Team;
 import me.coopersully.halara.teams.data_management.config.ConfigMain;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class SQLiteManager {
@@ -19,22 +17,23 @@ public class SQLiteManager {
     private static Connection conn;
     private static String url;
 
-    private static boolean makePluginFolder() {
-        return HalaraTeams.getPlugin().getDataFolder().mkdir();
-    }
-
     public static void createNewDatabase(String fileName) {
 
-        makePluginFolder();
-        url = "jdbc:sqlite:" + HalaraTeams.getPlugin().getDataFolder() + "\\" + fileName;
-        if (ConfigMain.isDebug()) System.out.println("Creating database in \"" + url + "\"");
+        // Ensure plugin folder exists
+        var pluginFolder = HalaraTeams.getPlugin().getDataFolder();
+        pluginFolder.mkdir();
 
+        // Create database
+        url = "jdbc:sqlite:" + pluginFolder + "\\" + fileName;
+        if (ConfigMain.isDebug()) System.out.println("Creating database in \"" + url + "\"");
         try {
             Connection conn = DriverManager.getConnection(url);
             if (conn != null) {
                 DatabaseMetaData meta = conn.getMetaData();
-                if (ConfigMain.isDebug()) System.out.println(ChatColor.GREEN + "The driver name is " + meta.getDriverName());
-                if (ConfigMain.isDebug()) System.out.println(ChatColor.GREEN + "A new database has been created.");
+                if (ConfigMain.isDebug()) {
+                    System.out.println(ChatColor.GREEN + "The driver name is " + meta.getDriverName());
+                    System.out.println(ChatColor.GREEN + "A new database has been created.");
+                }
             }
         } catch (SQLException e) {
             System.out.println(ChatColor.RED + "Failed to create new database.");
@@ -126,12 +125,13 @@ public class SQLiteManager {
         return performStatementQuery("SELECT * FROM teams WHERE name LIKE '%" + name + "%'");
     }
 
-    /* Takes in a ResultSet object, assuming it contains only
-     1x Team object and converts it, assigning all corresponding
-     values. */
-    public static Team convertResultSetToTeam(@NotNull ResultSet resultSet) {
+
+    /* Takes in a ResultSet containing values of multiple teams
+    and returns a list of corresponding Team objects. */
+    public static @NotNull List<Team> convertResultSetToTeams(@NotNull ResultSet resultSet) {
         try {
-            if (resultSet.next()) {
+            List<Team> teams = new ArrayList<>();
+            while (resultSet.next()) {
                 int id = 0;
                 String name = "";
                 long date = 0;
@@ -143,9 +143,9 @@ public class SQLiteManager {
                         case 3 -> date = resultSet.getLong(i);
                     }
                 }
-                return new Team(id, name, date);
+                teams.add(new Team(id, name, date));
             }
-            throw new RuntimeException("Given ResultSet did not have ResultSet#next().");
+            return teams;
         } catch (SQLException e) {
             System.out.println("An error occurred while converting a ResultSet into a Team.");
             throw new RuntimeException(e);
@@ -166,21 +166,21 @@ public class SQLiteManager {
         return fetchSize != 0;
     }
 
-    public static TeamMember getMemberFromTeam(int teamID, UUID memberUUID) {
-
-        String members;
-        try {
-            members = getTeamsByID(teamID).getString(4);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-        JSONObject jsonObject = new JSONObject(members);
-        for (var member : jsonObject.getJSONArray()) {
-            if (member instanceof JSONObject memberObject) {
-                memberObject.getString()
-            }
-        }
-        return new TeamMember();
-    }
+//    public static TeamMember getMemberFromTeam(int teamID, UUID memberUUID) {
+//
+//        String members;
+//        try {
+//            members = getTeamsByID(teamID).getString(4);
+//        } catch (SQLException e) {
+//            throw new RuntimeException(e);
+//        }
+//        JSONObject jsonObject = new JSONObject(members);
+//        for (var member : jsonObject.getJSONArray()) {
+//            if (member instanceof JSONObject memberObject) {
+//                memberObject.getString()
+//            }
+//        }
+//        return new TeamMember();
+//    }
 
 }
